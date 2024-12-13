@@ -6,4 +6,4 @@ A CLI tool that generate images of the UVs of an FBX mesh written in JavaScript.
 node ./index.mjs --file ./model.fbx --output ./uvs.png
 ```
 
-![Alt Text](./uvs.png)
+![UVs of half a face - scary!](./uvs.png)

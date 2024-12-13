@@ -74,7 +74,6 @@ const drawEdges = (fbx) => {
 
 const getSettings = () => {
   const argv = minimist(process.argv.slice(2));
-  console.log(argv)
   const settings = {
     UV_SIZE: argv?.size ?? 2048,
     FILE_PATH: argv?.file ?? "./model.fbx",
