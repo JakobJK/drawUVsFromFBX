@@ -1,7 +1,7 @@
-import {Canvas} from 'skia-canvas'
-import minimist from 'minimist';
-import { parseText, parseBinary}  from 'fbx-parser'
-import * as fs from 'fs'
+import { Canvas } from "skia-canvas";
+import minimist from "minimist";
+import { parseText, parseBinary } from "fbx-parser";
+import * as fs from "fs";
 
 const drawBackground = () => {
   // TODO: Add Background grid
@@ -9,10 +9,32 @@ const drawBackground = () => {
   ctx.fillRect(0, 0, settings.UV_SIZE, settings.UV_SIZE);
 };
 
-const drawVertices = (fbx) => {
-  const objs = fbx.filter( x => x.name === 'Objects')[0]
-  const uvs = objs.nodes[1].nodes[5].nodes[4].props[0]; 
+const getProps = (fbx, steps) => {
+  let result = fbx;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (!Array.isArray(result)) {
+      throw new TypeError(`Expected an array but got: ${typeof result}`);
+    }
+    const next = result.find((x) => x.name === step);
+    if (!next) {
+      return undefined; // Stop if the step is not found
+    }
+    result = i === steps.length - 1 ? next : next.nodes;
+  }
+  return result.props[0];
+};
 
+const getUVs = (fbx) =>
+  getProps(fbx, ["Objects", "Geometry", "LayerElementUV", "UV"]);
+const getUVIndices = (fbx) =>
+  getProps(fbx, ["Objects", "Geometry", "LayerElementUV", "UVIndex"]);
+
+const getFaceIndices = (fbx) =>
+  getProps(fbx, ["Objects", "Geometry", "PolygonVertexIndex"]);
+
+const drawVertices = (fbx) => {
+  const uvs = getProps(fbx, ["Objects", "Geometry", "LayerElementUV", "UV"]);
   ctx.fillStyle = settings.VERTEX_COLOR;
 
   for (let i = 0; i < uvs.length; i += 2) {
@@ -25,21 +47,14 @@ const drawVertices = (fbx) => {
   }
 };
 
-const drawEdges = (fbx) => {
-  const objs = fbx.filter( x => x.name === 'Objects')[0]
-
-  ctx.strokeStyle = settings.EDGE_COLOR;
-  ctx.lineWidth = 1;
-
-  // TODO: A robust way of traversing the FBX. 
-  // Cannot rely on array positions.
-  const uvs = objs.nodes[1].nodes[5].nodes[4].props[0]; 
-  const uvIndices = objs.nodes[1].nodes[5].nodes[5].props[0];
-  const faceIndices = objs.nodes[1].nodes[1].props[0]
+const getEdgesStructure = (fbx) => {
+  const uvs = getUVs(fbx);
+  const uvIndices = getUVIndices(fbx);
+  const faceIndices = getFaceIndices(fbx);
 
   const edges = {};
 
-  let lastNoneMinusIdx = 0
+  let lastNoneMinusIdx = 0;
   for (let i = 0; i < faceIndices.length; i++) {
     let a;
     let b;
@@ -49,28 +64,41 @@ const drawEdges = (fbx) => {
     if (faceIndices[i] < 0) {
       a = uvIndices[lastNoneMinusIdx];
       b = uvIndices[i];
-      lastNoneMinusIdx = i+1
+      lastNoneMinusIdx = i + 1;
     } else {
       a = uvIndices[i];
       b = uvIndices[i + 1];
     }
-    
+
     const key = [a, b].sort((x, y) => x - y).join("_");
-    // Many edges will be repeated by traversing through the faces
-    // This will ensure we only draw each edge once
     if (!edges.hasOwnProperty(key)) {
-      edges[key] = [uvs[a * 2], uvs[a * 2 + 1], uvs[b * 2], uvs[b * 2 + 1]];
+      edges[key] = [uvs[a * 2], uvs[a * 2 + 1], uvs[b * 2], uvs[b * 2 + 1], 1];
+    } else {
+      edges[key][4] += 1;
     }
   }
+  return edges;
+};
 
+const drawEdges = (edges) => {
   for (const [_, value] of Object.entries(edges)) {
-    const [startX, startY, endX, endY] = value;
+    const [startX, startY, endX, endY, connectedFaces] = value;
+
+    // Set style dynamically based on connectedFaces
+    if (connectedFaces === 1) {
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2; // Fat line
+    } else {
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 1; // Skinny line
+    }
+
     ctx.beginPath();
     ctx.moveTo(startX * settings.UV_SIZE, (1 - startY) * settings.UV_SIZE);
     ctx.lineTo(endX * settings.UV_SIZE, (1 - endY) * settings.UV_SIZE);
     ctx.stroke();
   }
-}
+};
 
 const getSettings = () => {
   const argv = minimist(process.argv.slice(2));
@@ -80,39 +108,40 @@ const getSettings = () => {
     BACKGROUND_COLOR: argv?.bg ?? "#2e2e2e",
     EDGE_COLOR: argv?.edge_color ?? "red",
     VERTEX_COLOR: argv?.vertex_color ?? "blue",
-    OUTPUT_FILE: argv?.output ?? "rainbow.png"
+    OUTPUT_FILE: argv?.output ?? "rainbow.png",
   };
   return settings;
 };
 
 const loadFbx = () => {
-  let fbx
+  let fbx;
   try {
-    fbx = parseBinary(fs.readFileSync(settings.FILE_PATH))
+    fbx = parseBinary(fs.readFileSync(settings.FILE_PATH));
   } catch (e) {
-    fbx = parseText(fs.readFileSync(settings.FILE_PATH, 'utf-8'))
+    fbx = parseText(fs.readFileSync(settings.FILE_PATH, "utf-8"));
   }
-  return fbx
-}
+  return fbx;
+};
 
 const createCanvas = () => {
   const canvas = new Canvas(settings.UV_SIZE, settings.UV_SIZE);
   const ctx = canvas.getContext("2d");
-  return {ctx, canvas}
-}
+  return { ctx, canvas };
+};
 
 async function render() {
   await canvas.saveAs(settings.OUTPUT_FILE, { density: 2 });
 }
 
 // TODO: UDIM support
-const settings = getSettings() // Get Settings
-const fbx = loadFbx() // Load FBX
-const {ctx, canvas} = createCanvas() // Build Canvas 
-drawBackground()
-// TODO: drawFaces(fbx) draw UVs normals blue for front facing, red for backfacing. 
-drawEdges(fbx) // Draw Edges
-// drawBorderEdges();
-drawVertices(fbx) // Draw Vertices
+const settings = getSettings(); // Get Settings
+const fbx = loadFbx(); // Load FBX
+const { ctx, canvas } = createCanvas(); // Build Canvas
+drawBackground();
+// TODO: drawFaces(fbx) draw UVs normals blue for front facing, red for backfacing.
+
+const edges = getEdgesStructure(fbx);
+drawEdges(edges); // Draw Edges
+drawVertices(fbx); // Draw Vertices
 
 render();
