@@ -84,6 +84,7 @@ const drawEdges = (edges) => {
   for (const [_, value] of Object.entries(edges)) {
     const [startX, startY, endX, endY, connectedFaces] = value;
 
+    // If the edge is a border edge.
     if (connectedFaces === 1) {
       ctx.strokeStyle = settings.BORDER_COLOR;
       ctx.lineWidth = 2;
