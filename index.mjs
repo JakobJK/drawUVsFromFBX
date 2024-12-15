@@ -84,13 +84,12 @@ const drawEdges = (edges) => {
   for (const [_, value] of Object.entries(edges)) {
     const [startX, startY, endX, endY, connectedFaces] = value;
 
-    // Set style dynamically based on connectedFaces
     if (connectedFaces === 1) {
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = 2; // Fat line
+      ctx.strokeStyle = settings.BORDER_COLOR;
+      ctx.lineWidth = 2;
     } else {
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 1; // Skinny line
+      ctx.strokeStyle = settings.EDGE_COLOR;
+      ctx.lineWidth = 1;
     }
 
     ctx.beginPath();
@@ -107,6 +106,7 @@ const getSettings = () => {
     FILE_PATH: argv?.file ?? "./model.fbx",
     BACKGROUND_COLOR: argv?.bg ?? "#2e2e2e",
     EDGE_COLOR: argv?.edge_color ?? "red",
+    BORDER_COLOR: argv?.border_color ?? "white",
     VERTEX_COLOR: argv?.vertex_color ?? "blue",
     OUTPUT_FILE: argv?.output ?? "rainbow.png",
   };
