@@ -42,7 +42,7 @@ const drawVertices = (fbx) => {
     const y = (1 - uvs[i + 1]) * settings.UV_SIZE;
 
     ctx.beginPath();
-    ctx.arc(x, y, 0.5, 0, Math.PI * 2);
+    ctx.arc(x, y, 1, 0, Math.PI * 2);
     ctx.fill();
   }
 };
@@ -106,15 +106,33 @@ const getSettings = () => {
     UV_SIZE: argv?.size ?? 2048,
     FILE_PATH: argv?.file ?? "./model.fbx",
     BACKGROUND_COLOR: argv?.bg ?? "#2e2e2e",
-    EDGE_COLOR: argv?.edge_color ?? "red",
+    EDGE_COLOR: argv?.edge_color ?? "teal",
     BORDER_COLOR: argv?.border_color ?? "white",
-    VERTEX_COLOR: argv?.vertex_color ?? "blue",
+    VERTEX_COLOR: argv?.vertex_color ?? "green",
     OUTPUT_FILE: argv?.output ?? "rainbow.png",
+    FRONT_FACE_COLOR: argv?.front_face_color ?? "blue",
+    BACK_FACE_COLOR: argv?.back_face_color ?? "red",
   };
   return settings;
 };
 
-const getFaces = (fbx) => {
+const multiplyCanvasAlpha = (ctx, alphaMultiplier) => {
+  // Save the current canvas state
+  ctx.save();
+
+  // Set the composite operation to modify the alpha channel
+  ctx.globalCompositeOperation = "destination-in";
+
+  // Apply the alpha multiplier using a full-screen rectangle
+  ctx.globalAlpha = alphaMultiplier;
+  ctx.fillStyle = "rgba(0, 0, 0, 1)"; // Fully opaque color to preserve RGB
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+  // Restore the canvas state
+  ctx.restore();
+};
+
+const getFacesAndDraw = (fbx) => {
   const uvs = getUVs(fbx); // UV positions
   const uvIndices = getUVIndices(fbx); // UV indices
   const faceIndices = getFaceIndices(fbx); // Face indices
@@ -133,11 +151,12 @@ const getFaces = (fbx) => {
     }
   }
 
-  // Compute winding for each face
-  const windings = faces.map((face) => {
+  // Draw each face and compute winding
+  faces.forEach((face) => {
     let signedArea = 0;
 
-    // Iterate over all vertices in the face
+    ctx.beginPath();
+
     for (let i = 0; i < face.length; i++) {
       const currentIdx = face[i];
       const nextIdx = face[(i + 1) % face.length]; // Wrap around to the first vertex
@@ -149,18 +168,32 @@ const getFaces = (fbx) => {
 
       // Shoelace formula to compute signed area
       signedArea += x1 * y2 - y1 * x2;
+
+      // Draw edges of the face
+      const scaledX1 = x1 * settings.UV_SIZE;
+      const scaledY1 = (1 - y1) * settings.UV_SIZE;
+      const scaledX2 = x2 * settings.UV_SIZE;
+      const scaledY2 = (1 - y2) * settings.UV_SIZE;
+
+      if (i === 0) ctx.moveTo(scaledX1, scaledY1);
+      ctx.lineTo(scaledX2, scaledY2);
     }
 
-    // Determine the winding based on signed area
-    return {
-      face,
-      winding: signedArea > 0 ? "front-facing" : "backward-facing",
-    };
+    ctx.closePath();
+
+    const face_color =
+      signedArea > 0 ? settings.FRONT_FACE_COLOR : settings.BACK_FACE_COLOR;
+
+    ctx.fillStyle = face_color;
+
+    ctx.fill();
+    ctx.strokeStyle = face_color;
+    // ctx.lineWidth = 1;
+    ctx.stroke();
   });
 
-  return windings;
+  multiplyCanvasAlpha(ctx, 0.4);
 };
-
 
 const loadFbx = () => {
   let fbx;
@@ -182,11 +215,7 @@ async function render() {
   await canvas.saveAs(settings.OUTPUT_FILE, { density: 2 });
 }
 
-
-
-const drawFaces = (faces) => {
-
-}
+// const drawFaces = (faces) => {};
 
 // TODO: UDIM support
 const settings = getSettings(); // Get Settings
@@ -194,14 +223,11 @@ const settings = getSettings(); // Get Settings
 const { ctx, canvas } = createCanvas(); // Build Canvas
 
 const fbx = loadFbx(); // Load FBX
-const faces = getFaces(fbx)
-
+// const faces = getFaces(fbx);
 
 drawBackground();
-drawFaces(faces) // draw UVs normals blue for front facing, red for backfacing.
+getFacesAndDraw(fbx); // draw UVs normals blue for front facing, red for backfacing.
 const edges = getEdgesStructure(fbx);
 drawEdges(edges); // Draw Edges
 drawVertices(fbx); // Draw Vertices
-
 render();
-
