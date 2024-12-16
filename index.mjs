@@ -139,7 +139,6 @@ const fbx = loadFbx(); // Load FBX
 const { ctx, canvas } = createCanvas(); // Build Canvas
 drawBackground();
 // TODO: drawFaces(fbx) draw UVs normals blue for front facing, red for backfacing.
-
 const edges = getEdgesStructure(fbx);
 drawEdges(edges); // Draw Edges
 drawVertices(fbx); // Draw Vertices
