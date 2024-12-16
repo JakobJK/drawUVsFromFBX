@@ -114,6 +114,54 @@ const getSettings = () => {
   return settings;
 };
 
+const getFaces = (fbx) => {
+  const uvs = getUVs(fbx); // UV positions
+  const uvIndices = getUVIndices(fbx); // UV indices
+  const faceIndices = getFaceIndices(fbx); // Face indices
+
+  const faces = [];
+  let currentFace = [];
+
+  // Organize UV IDs into individual faces
+  for (let i = 0; i < faceIndices.length; i++) {
+    currentFace.push(uvIndices[i]);
+
+    // End of face detected
+    if (faceIndices[i] < 0) {
+      faces.push(currentFace);
+      currentFace = [];
+    }
+  }
+
+  // Compute winding for each face
+  const windings = faces.map((face) => {
+    let signedArea = 0;
+
+    // Iterate over all vertices in the face
+    for (let i = 0; i < face.length; i++) {
+      const currentIdx = face[i];
+      const nextIdx = face[(i + 1) % face.length]; // Wrap around to the first vertex
+
+      const x1 = uvs[currentIdx * 2];
+      const y1 = uvs[currentIdx * 2 + 1];
+      const x2 = uvs[nextIdx * 2];
+      const y2 = uvs[nextIdx * 2 + 1];
+
+      // Shoelace formula to compute signed area
+      signedArea += x1 * y2 - y1 * x2;
+    }
+
+    // Determine the winding based on signed area
+    return {
+      face,
+      winding: signedArea > 0 ? "front-facing" : "backward-facing",
+    };
+  });
+
+  return windings;
+};
+
+
 const loadFbx = () => {
   let fbx;
   try {
@@ -134,14 +182,26 @@ async function render() {
   await canvas.saveAs(settings.OUTPUT_FILE, { density: 2 });
 }
 
+
+
+const drawFaces = (faces) => {
+
+}
+
 // TODO: UDIM support
 const settings = getSettings(); // Get Settings
-const fbx = loadFbx(); // Load FBX
+
 const { ctx, canvas } = createCanvas(); // Build Canvas
+
+const fbx = loadFbx(); // Load FBX
+const faces = getFaces(fbx)
+
+
 drawBackground();
-// TODO: drawFaces(fbx) draw UVs normals blue for front facing, red for backfacing.
+drawFaces(faces) // draw UVs normals blue for front facing, red for backfacing.
 const edges = getEdgesStructure(fbx);
 drawEdges(edges); // Draw Edges
 drawVertices(fbx); // Draw Vertices
 
 render();
+
