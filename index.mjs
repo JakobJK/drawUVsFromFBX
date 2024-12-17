@@ -87,10 +87,10 @@ const drawEdges = (edges) => {
     // If the edge is a border edge.
     if (connectedFaces === 1) {
       ctx.strokeStyle = settings.BORDER_COLOR;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
     } else {
       ctx.strokeStyle = settings.EDGE_COLOR;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 0.75;
     }
 
     ctx.beginPath();
@@ -106,10 +106,10 @@ const getSettings = () => {
     UV_SIZE: argv?.size ?? 2048,
     FILE_PATH: argv?.file ?? "./model.fbx",
     BACKGROUND_COLOR: argv?.bg ?? "#2e2e2e",
-    EDGE_COLOR: argv?.edge_color ?? "teal",
+    EDGE_COLOR: argv?.edge_color ?? "#00F9C7",
     BORDER_COLOR: argv?.border_color ?? "white",
     VERTEX_COLOR: argv?.vertex_color ?? "green",
-    OUTPUT_FILE: argv?.output ?? "rainbow.png",
+    OUTPUT_FILE: argv?.output ?? "uvs.png",
     FRONT_FACE_COLOR: argv?.front_face_color ?? "blue",
     BACK_FACE_COLOR: argv?.back_face_color ?? "red",
   };
@@ -185,10 +185,7 @@ const getFacesAndDraw = (fbx) => {
       signedArea > 0 ? settings.FRONT_FACE_COLOR : settings.BACK_FACE_COLOR;
 
     ctx.fillStyle = face_color;
-
     ctx.fill();
-    ctx.strokeStyle = face_color;
-    // ctx.lineWidth = 1;
     ctx.stroke();
   });
 
@@ -226,8 +223,8 @@ const fbx = loadFbx(); // Load FBX
 // const faces = getFaces(fbx);
 
 drawBackground();
-getFacesAndDraw(fbx); // draw UVs normals blue for front facing, red for backfacing.
+getFacesAndDraw(fbx);
 const edges = getEdgesStructure(fbx);
 drawEdges(edges); // Draw Edges
-drawVertices(fbx); // Draw Vertices
+// drawVertices(fbx); // Draw Vertices
 render();
